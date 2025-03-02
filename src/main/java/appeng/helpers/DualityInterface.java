@@ -64,7 +64,6 @@ import appeng.parts.automation.UpgradeInventory;
 import appeng.parts.misc.PartInterface;
 import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
-import appeng.tile.inventory.AppEngInternalOversizedInventory;
 import appeng.tile.inventory.AppEngNetworkInventory;
 import appeng.tile.networking.TileCableBus;
 import appeng.util.ConfigManager;
@@ -96,9 +95,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.wrapper.RangedWrapper;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
 
@@ -1161,7 +1158,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
             }
             case LOCK_UNTIL_RESULT -> {
                 unlockEvent = UnlockCraftingEvent.RESULT;
-                unlockStack = pattern.getPrimaryOutput();
+                unlockStack = pattern.getPrimaryOutput().copy();
                 saveChanges();
             }
         }
@@ -1170,7 +1167,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
     /**
      * Gets if the crafting lock is in effect and why.
      *
-     * @return null if the lock isn't in effect
+     * @return {@link LockCraftingMode#NONE} if the lock isn't in effect
      */
     public LockCraftingMode getCraftingLockedReason() {
         var lockMode = cm.getSetting(Settings.UNLOCK);
@@ -1455,7 +1452,13 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
                 }
 
                 if (what.getItem() != Items.AIR) {
-                    return what.getItem().getItemStackDisplayName(what);
+                    /* getTranslationKey() and getUnlocalizedNameInefficiently() have different return values in some mod 
+                     * For the Thermal Expansion
+                     * getTranslationKey() returns complete key ending with ".name".
+                     * getUnlocalizedNameInefficiently() returns localized name
+                     * Because CoFH Core overrides method getTranslationKey()
+                     */
+                    return what.getItem().getTranslationKey(what);
                 }
 
                 final Item item = Item.getItemFromBlock(directedBlock);
@@ -1520,7 +1523,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
     /**
      * @return Null if {@linkplain #getCraftingLockedReason()} is not {@link LockCraftingMode#LOCK_UNTIL_RESULT}.
      */
-    @org.jetbrains.annotations.Nullable
+    @Nullable
     public IAEItemStack getUnlockStack() {
         return unlockStack;
     }
@@ -1534,7 +1537,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
             // Actually an error state...
             AELog.error("MEInterface was waiting for RESULT, but no result was set");
             unlockEvent = null;
-        } else if (unlockStack.getItem().equals(stack.getItem())) {
+        } else if (unlockStack.isSameType(stack)) {
             var remainingAmount = unlockStack.getStackSize() - stack.getStackSize();
             if (remainingAmount <= 0) {
                 unlockEvent = null;
